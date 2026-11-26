@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="로또AI" />
+  <title>로또 6/45 AI 앱</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .app-shell {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      background: #f8fafc;
+      box-shadow: 0 0 40px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      padding-bottom: 5.5rem;
+    }
+    @media (min-width: 768px) {
+      .app-shell {
+        max-width: 680px;
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        min-height: calc(100vh - 2rem);
+        border-radius: 1.5rem;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+      }
+    }
+    .lotto-ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(15, 23, 42, 0.12);
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .lotto-ball-sm {
+      width: 1.85rem;
+      height: 1.85rem;
+      font-size: 0.75rem;
+    }
+    .ball-y { background: linear-gradient(135deg, #fde047, #eab308); color: #422006; }
+    .ball-b { background: linear-gradient(135deg, #7dd3fc, #0284c7); color: #ffffff; }
+    .ball-r { background: linear-gradient(135deg, #fda4af, #e11d48); color: #ffffff; }
+    .ball-g { background: linear-gradient(135deg, #cbd5e1, #64748b); color: #ffffff; }
+    .ball-gr { background: linear-gradient(135deg, #bef264, #65a30d); color: #1a2e05; }
+
+    @keyframes popIn {
+      0% { transform: scale(0.72); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-ball {
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell relative">
+    <!-- App Top Bar -->
+    <header class="bg-indigo-600 text-white px-4 pt-4 pb-3.5 sticky top-0 z-30 shadow-sm">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-5 h-5 text-amber-300"></i>
+          </div>
+          <div>
+            <h1 class="text-base font-bold leading-tight">로또 6/45 AI</h1>
+            <p id="appSubtitle" class="text-[11px] text-indigo-100">1회~1251회 당첨조합 제외</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="installAppBtn" type="button" class="hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-400 text-slate-900 hover:bg-amber-300 transition">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>앱 설치</span>
+          </button>
+          <button id="syncNowBtn" type="button" aria-label="당첨내역 즉시 동기화" class="p-2 rounded-xl bg-white/15 hover:bg-white/25 transition" title="최신 당첨내역 지금 업데이트">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+          <button id="soundToggleBtn" type="button" aria-label="효과음 전환" class="p-2 rounded-xl bg-white/15 hover:bg-white/25 transition">
+            <i id="soundIcon" data-lucide="volume-2" class="w-4 h-4"></i>
+          </button>
+          <button id="openDataModalBtn" type="button" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/15 hover:bg-white/25 transition">
+            <i data-lucide="database" class="w-3.5 h-3.5"></i>
+            <span>회차관리</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Auto-Sync Status Pill -->
+      <div class="mt-2.5 flex items-center justify-between gap-2 bg-indigo-700/60 rounded-xl px-3 py-1.5 text-[11px]">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0"></span>
+          <span id="dataStatusText" class="truncate text-indigo-50">역대 당첨내역 자동 동기화 중...</span>
+        </div>
+        <span id="kpiExcludedCount" class="font-bold text-amber-200 shrink-0">제외 2개</span>
+      </div>
+    </header>
+
+    <!-- Main Views -->
+    <main class="flex-1 p-4 space-y-4">
+      <!-- VIEW 1: EXTRACT -->
+      <section id="view-extract" class="app-view space-y-4">
+        <!-- Quick Latest Draw Banner -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs">
+          <div class="flex items-center justify-between mb-2">
+            <span id="kpiRoundsLabel" class="text-xs font-bold text-slate-700">최근 1251회 당첨번호</span>
+            <span id="kpiLatestDate" class="text-[11px] text-slate-400">2026-11-21</span>
+          </div>
+          <div id="kpiRecentNumbers" class="flex items-center gap-1.5 flex-wrap"></div>
+        </div>
+
+        <!-- Extracted Results -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">추천 최적 조합</h2>
+              <p class="text-[11px] text-slate-500">역대 1등 중복 0% · 패턴 적합도 상위</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button id="slipModalBtn" type="button" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="용지 보기">
+                <i data-lucide="ticket" class="w-4 h-4"></i>
+              </button>
+              <button id="shareAllBtn" type="button" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="공유하기">
+                <i data-lucide="share-2" class="w-4 h-4"></i>
+              </button>
+              <button id="copyAllBtn" type="button" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="전체 복사">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+              </button>
+              <button id="saveAllBtn" type="button" class="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
+                <i data-lucide="bookmark-plus" class="w-3.5 h-3.5"></i>
+                <span>저장</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="resultsContainer" class="space-y-2.5"></div>
+
+          <button id="generateBtn" type="button" class="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-indigo-600/25 transition flex items-center justify-center gap-2">
+            <i data-lucide="wand-2" class="w-4 h-4"></i>
+            <span>최적 조합 새로 추출하기</span>
+          </button>
+        </div>
+
+        <!-- Strategy & Options Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <i data-lucide="sliders-horizontal" class="w-4 h-4 text-indigo-600"></i>
+              <span>추출 조건 설정</span>
+            </h3>
+            <button id="resetOptionsBtn" type="button" class="text-xs font-semibold text-slate-500 hover:text-indigo-600">초기화</button>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="gameCountInput" class="text-xs font-semibold text-slate-700">게임 수</label>
+              <span id="gameCountLabel" class="text-xs font-bold text-indigo-600">5게임</span>
+            </div>
+            <input id="gameCountInput" type="range" min="1" max="10" value="5" class="w-full accent-indigo-600 cursor-pointer" />
+          </div>
+
+          <div>
+            <label for="strategySelect" class="block text-xs font-semibold text-slate-700 mb-1">조합 전략</label>
+            <select id="strategySelect" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="balanced" selected>균형 최적 (역대 빈도 + 패턴 적합도)</option>
+              <option value="hot">최다 출현 중심 (Hot 번호 가중)</option>
+              <option value="recent">최근 트렌드 중심 (최근 30회 가중)</option>
+              <option value="cold">미출현 반등 (저빈도 + 미출현 가중)</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="excludePast1st" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">1회~최신 1등 조합 제외</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="excludePast2nd" type="checkbox" class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">역대 2등 조합도 제외</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="excludeLastWeekNumbers" type="checkbox" class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">직전 회차 6개 번호 제외</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="filterSumRange" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">합계 100~175 최적화</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="filterOddEven" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">홀짝 극단(6:0) 제외</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
+              <input id="filterAC" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">복잡도 AC 7 이상</span>
+            </label>
+          </div>
+
+          <div class="pt-1 flex items-center justify-between gap-2">
+            <div id="customNumbersSummary" class="text-xs text-slate-500 truncate">고정수/제외수 없음</div>
+            <button id="openPickerModalBtn" type="button" class="shrink-0 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">고정/제외 선택</button>
+          </div>
+
+          <p class="text-[11px] leading-relaxed text-slate-400">
+            로또는 독립 시행이므로 모든 조합의 이론적 확률(1/8,145,060)은 동일하며, 본 앱은 자동 동기화된 역대 조합을 제외하고 통계 적합도 기반 추천을 제공합니다.
+          </p>
+        </div>
+      </section>
+
+      <!-- VIEW 2: STATS -->
+      <section id="view-stats" class="app-view hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs">
+            <div class="text-[11px] font-medium text-slate-500">반영된 회차</div>
+            <div id="kpiRounds" class="mt-1 text-lg font-bold text-slate-900">-</div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs">
+            <div class="text-[11px] font-medium text-slate-500">최다 출현 TOP 3</div>
+            <div id="kpiHotNumbers" class="mt-1.5 flex items-center gap-1 flex-wrap">-</div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-bold text-slate-900">1~45번 출현 빈도</h2>
+              <p class="text-[11px] text-slate-500">상위 10개(인디고) · 하위 10개(슬레이트)</p>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <button id="chartModeAll" type="button" class="px-2.5 py-1 rounded-lg font-semibold bg-indigo-600 text-white">전체</button>
+              <button id="chartModeRecent" type="button" class="px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-700">최근 30회</button>
+            </div>
+          </div>
+          <div class="relative h-72 w-full">
+            <canvas id="freqChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: HISTORY & CHECKER -->
+      <section id="view-history" class="app-view hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <h2 class="text-sm font-bold text-slate-900">내 번호 역대 당첨 중복 검사기</h2>
+          <div class="flex items-center gap-2">
+            <input id="checkNumbersInput" type="text" placeholder="예: 3, 11, 19, 25, 33, 42" class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <button id="checkNumbersBtn" type="button" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0">검사</button>
+          </div>
+          <div id="checkNumbersResult" class="text-xs text-slate-600 bg-slate-50 rounded-xl p-2.5">6개 번호를 입력하면 1회~최신 회차 일치 이력을 확인합니다.</div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-bold text-slate-900">역대 당첨 회차</h2>
+            <input id="historySearchInput" type="number" placeholder="회차 검색" class="w-28 rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          </div>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+                <tr>
+                  <th class="py-2 px-2.5 font-semibold">회차</th>
+                  <th class="py-2 px-2.5 font-semibold">당첨번호</th>
+                  <th class="py-2 px-2.5 font-semibold">보너스</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 4: SAVED -->
+      <section id="view-saved" class="app-view hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-900">저장한 조합 보관함</h2>
+            <button id="clearSavedBtn" type="button" class="text-xs font-bold text-rose-600 hover:text-rose-700">전체 삭제</button>
+          </div>
+          <div id="savedListContainer" class="space-y-2.5"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom App Navigation Bar -->
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] md:max-w-[680px] bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 z-40 grid grid-cols-4 gap-1">
+      <button type="button" data-view="extract" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-indigo-600 bg-indigo-50/70">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span class="text-[11px] font-bold mt-0.5">번호추출</span>
+      </button>
+      <button type="button" data-view="stats" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800">
+        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+        <span class="text-[11px] font-medium mt-0.5">출현통계</span>
+      </button>
+      <button type="button" data-view="history" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800">
+        <i data-lucide="search-check" class="w-4 h-4"></i>
+        <span class="text-[11px] font-medium mt-0.5">회차/검증</span>
+      </button>
+      <button type="button" data-view="saved" class="nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800">
+        <i data-lucide="bookmark" class="w-4 h-4"></i>
+        <span class="text-[11px] font-medium mt-0.5">보관함 <span id="savedCountBadge" class="font-bold text-indigo-600">0</span></span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Modal: Fixed / Excluded Numbers Picker -->
+  <div id="pickerModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">고정수 / 제외수 선택</h3>
+          <p class="text-xs text-slate-500 mt-0.5">1회 클릭: <span class="text-emerald-600 font-semibold">고정(최대 5개)</span> · 2회: <span class="text-rose-600 font-semibold">제외</span> · 3회: 해제</p>
+        </div>
+        <button id="closePickerModalBtn" type="button" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="pickerGrid" class="grid grid-cols-7 gap-2"></div>
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <button id="clearPickerBtn" type="button" class="text-xs font-semibold text-slate-500 hover:text-slate-800">모두 해제</button>
+        <button id="applyPickerBtn" type="button" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">적용하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Auto-Sync & Add / Import Draws -->
+  <div id="dataModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-900">당첨내역 자동 업데이트 및 관리</h3>
+        <button id="closeDataModalBtn" type="button" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Auto Update Settings -->
+      <div class="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="flex items-center gap-2 text-xs font-bold text-indigo-950 cursor-pointer">
+            <input id="autoSyncToggle" type="checkbox" checked class="rounded border-indigo-300 text-indigo-600" />
+            <span>앱 실행·복귀·주기적 자동 업데이트</span>
+          </label>
+          <button id="modalSyncBtn" type="button" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold">지금 동기화</button>
+        </div>
+        <div id="lastSyncInfo" class="text-[11px] text-indigo-800">마지막 동기화: 대기 중</div>
+      </div>
+
+      <div class="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+        <div class="text-xs font-bold text-slate-800">신규 당첨 회차 수동 추가</div>
+        <div class="grid grid-cols-2 gap-2">
+          <input id="manualDrawNo" type="number" placeholder="회차 (예: 1252)" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs" />
+          <input id="manualBonusNo" type="number" min="1" max="45" placeholder="보너스 (예: 7)" class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs" />
+        </div>
+        <input id="manualNumbers" type="text" placeholder="당첨번호 6개 (예: 3, 12, 18, 27, 35, 41)" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs" />
+        <button id="addManualDrawBtn" type="button" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold">추가 및 통계 반영</button>
+      </div>
+
+      <div class="space-y-2">
+        <label class="block text-xs font-bold text-slate-800">JSON / CSV 파일 업로드</label>
+        <input id="importFileInput" type="file" accept=".json,.csv,.txt" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Lotto Slip Preview -->
+  <div id="slipModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">모바일 로또 슬립지</h3>
+          <p class="text-[11px] text-slate-500">판매점 마킹용 요약 카드</p>
+        </div>
+        <button id="closeSlipModalBtn" type="button" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="slipContent" class="space-y-2 font-mono text-sm bg-amber-50/60 border border-amber-200 rounded-xl p-3.5"></div>
+      <button id="confirmSlipCloseBtn" type="button" class="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold">닫기</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden px-4 py-2 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-lg whitespace-nowrap"></div>
+
+  <script>
+    const VERIFIED_RECENT_DRAWS = [
+      { draw_no: 1251, date: '2026-11-21', numbers: [14, 18, 19, 29, 40, 45], bonus_no: 1 },
+      { draw_no: 1250, date: '2026-11-14', numbers: [1, 5, 18, 23, 27, 28], bonus_no: 8 }
+    ];
+
+    const CACHE_DRAWS_KEY = 'lotto_cached_draws_v2';
+    const CACHE_SYNC_KEY = 'lotto_last_sync_v2';
+    const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1시간 주기 자동 체크
+
+    const state = {
+      draws: [],
+      past1stSet: new Set(),
+      past2ndSet: new Set(),
+      freqAll: new Array(46).fill(0),
+      freqRecent: new Array(46).fill(0),
+      lastSeenGap: new Array(46).fill(0),
+      fixedNumbers: new Set(),
+      excludedNumbers: new Set(),
+      draftFixed: new Set(),
+      draftExcluded: new Set(),
+      extractedGames: [],
+      savedGames: [],
+      chartMode: 'all',
+      freqChart: null,
+      soundEnabled: true,
+      autoSyncEnabled: true,
+      isSyncing: false,
+      lastSyncAt: null,
+      syncTimerId: null,
+      deferredPrompt: null,
+      audioCtx: null
+    };
+
+    function getBallClass(n) {
+      if (n <= 10) return 'ball-y';
+      if (n <= 20) return 'ball-b';
+      if (n <= 30) return 'ball-r';
+      if (n <= 40) return 'ball-g';
+      return 'ball-gr';
+    }
+
+    function comboKey(nums) {
+      return [...nums].sort((a, b) => a - b).join('-');
+    }
+
+    function playChime() {
+      if (!state.soundEnabled) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!state.audioCtx) state.audioCtx = new Ctx();
+        if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+        const now = state.audioCtx.currentTime;
+        [523.25, 659.25, 783.99].forEach((freq, i) => {
+          const osc = state.audioCtx.createOscillator();
+          const gain = state.audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.05);
+          gain.gain.setValueAtTime(0.06, now + i * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.16);
+          osc.connect(gain);
+          gain.connect(state.audioCtx.destination);
+          osc.start(now + i * 0.05);
+          osc.stop(now + i * 0.05 + 0.17);
+        });
+      } catch (e) {}
+    }
+
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => el.classList.add('hidden'), 2400);
+    }
+
+    function loadCachedDraws() {
+      const map = new Map();
+      try {
+        const raw = localStorage.getItem(CACHE_DRAWS_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(d => {
+              if (d && d.draw_no && Array.isArray(d.numbers) && d.numbers.length === 6) {
+                map.set(d.draw_no, d);
+              }
+            });
+          }
+        }
+        const syncIso = localStorage.getItem(CACHE_SYNC_KEY);
+        if (syncIso) state.lastSyncAt = syncIso;
+      } catch (e) {}
+      VERIFIED_RECENT_DRAWS.forEach(d => {
+        if (!map.has(d.draw_no)) map.set(d.draw_no, d);
+      });
+      state.draws = [...map.values()];
+    }
+
+    function persistCachedDraws() {
+      try {
+        localStorage.setItem(CACHE_DRAWS_KEY, JSON.stringify(state.draws));
+        if (state.lastSyncAt) localStorage.setItem(CACHE_SYNC_KEY, state.lastSyncAt);
+      } catch (e) {}
+    }
+
+    function loadSavedGames() {
+      try {
+        const raw = localStorage.getItem('lotto_app_saved_v1');
+        if (raw) state.savedGames = JSON.parse(raw);
+      } catch (e) {
+        state.savedGames = [];
+      }
+    }
+
+    function persistSavedGames() {
+      try {
+        localStorage.setItem('lotto_app_saved_v1', JSON.stringify(state.savedGames));
+      } catch (e) {}
+    }
+
+    function normalizeDrawEntry(d) {
+      if (!d || !d.draw_no || !Array.isArray(d.numbers) || d.numbers.length !== 6) return null;
+      const nums = d.numbers.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 45);
+      if (nums.length !== 6) return null;
+      return {
+        draw_no: Number(d.draw_no),
+        date: d.date || '',
+        numbers: nums.sort((a, b) => a - b),
+        bonus_no: Number(d.bonus_no || 0)
+      };
+    }
+
+    function rebuildStats() {
+      state.draws.sort((a, b) => a.draw_no - b.draw_no);
+      state.past1stSet.clear();
+      state.past2ndSet.clear();
+      state.freqAll.fill(0);
+      state.freqRecent.fill(0);
+      state.lastSeenGap.fill(state.draws.length);
+
+      const total = state.draws.length;
+      const recentStart = Math.max(0, total - 30);
+
+      state.draws.forEach((d, idx) => {
+        const sorted = [...d.numbers].sort((a, b) => a - b);
+        state.past1stSet.add(sorted.join('-'));
+        if (d.bonus_no >= 1 && d.bonus_no <= 45) {
+          for (let i = 0; i < 6; i++) {
+            const sub = sorted.filter((_, j) => j !== i);
+            sub.push(d.bonus_no);
+            state.past2ndSet.add(comboKey(sub));
+          }
+        }
+        sorted.forEach(n => {
+          if (n >= 1 && n <= 45) {
+            state.freqAll[n]++;
+            if (idx >= recentStart) state.freqRecent[n]++;
+            state.lastSeenGap[n] = total - 1 - idx;
+          }
+        });
+      });
+
+      updateKPIs();
+      renderChart();
+      renderHistoryTable();
+    }
+
+    function updateKPIs() {
+      const total = state.draws.length;
+      const first = total > 0 ? state.draws[0].draw_no : '-';
+      const latest = total > 0 ? state.draws[total - 1] : null;
+
+      document.getElementById('kpiRounds').textContent = total > 0 ? `${first}~${latest.draw_no}회 (${total}건)` : '0회';
+      document.getElementById('kpiExcludedCount').textContent = `제외 ${state.past1stSet.size.toLocaleString()}개`;
+      if (latest) {
+        document.getElementById('appSubtitle').textContent = `${first}회~${latest.draw_no}회 당첨조합 제외`;
+        document.getElementById('kpiRoundsLabel').textContent = `최근 ${latest.draw_no}회 당첨번호`;
+        document.getElementById('kpiLatestDate').textContent = latest.date ? latest.date.slice(0, 10) : '';
+        const bonusHtml = (latest.bonus_no >= 1 && latest.bonus_no <= 45)
+          ? `<span class="text-xs text-slate-400 mx-0.5">+</span><span class="lotto-ball lotto-ball-sm ${getBallClass(latest.bonus_no)}">${latest.bonus_no}</span>`
+          : '';
+        document.getElementById('kpiRecentNumbers').innerHTML = latest.numbers.map(n =>
+          `<span class="lotto-ball lotto-ball-sm ${getBallClass(n)}">${n}</span>`
+        ).join('') + bonusHtml;
+      }
+
+      const ranked = [];
+      for (let n = 1; n <= 45; n++) ranked.push({ n, c: state.freqAll[n] });
+      ranked.sort((a, b) => b.c - a.c || a.n - b.n);
+      document.getElementById('kpiHotNumbers').innerHTML = ranked.slice(0, 3).map(item =>
+        `<span class="inline-flex items-center gap-1"><span class="lotto-ball lotto-ball-sm ${getBallClass(item.n)}">${item.n}</span><span class="text-[11px] text-slate-600 font-semibold">${item.c}</span></span>`
+      ).join('');
+
+      const syncInfoEl = document.getElementById('lastSyncInfo');
+      if (syncInfoEl && state.lastSyncAt) {
+        syncInfoEl.textContent = `마지막 동기화: ${state.lastSyncAt.replace('T', ' ').slice(0, 16)}`;
+      }
+    }
+
+    function computeWeights(strategy) {
+      const weights = new Array(46).fill(1);
+      const maxAll = Math.max(1, ...state.freqAll.slice(1));
+      const maxRecent = Math.max(1, ...state.freqRecent.slice(1));
+      const maxGap = Math.max(1, ...state.lastSeenGap.slice(1));
+
+      for (let n = 1; n <= 45; n++) {
+        const normAll = state.freqAll[n] / maxAll;
+        const normRecent = state.freqRecent[n] / maxRecent;
+        const normGap = state.lastSeenGap[n] / maxGap;
+        if (strategy === 'hot') weights[n] = 0.4 + 2.2 * normAll + 0.5 * normRecent;
+        else if (strategy === 'recent') weights[n] = 0.4 + 2.3 * normRecent + 0.4 * normAll;
+        else if (strategy === 'cold') weights[n] = 0.5 + 1.5 * (1 - normAll) + 1.4 * normGap;
+        else weights[n] = 0.8 + 1.1 * normAll + 0.7 * normRecent + 0.4 * normGap;
+      }
+      return weights;
+    }
+
+    function calculateAC(nums) {
+      const diffs = new Set();
+      for (let i = 0; i < nums.length; i++) {
+        for (let j = i + 1; j < nums.length; j++) {
+          diffs.add(Math.abs(nums[j] - nums[i]));
+        }
+      }
+      return diffs.size - 5;
+    }
+
+    function evaluateCombo(nums, weights, opts) {
+      const sum = nums.reduce((a, b) => a + b, 0);
+      const odd = nums.filter(n => n % 2 === 1).length;
+      const even = 6 - odd;
+      const low = nums.filter(n => n <= 22).length;
+      const high = 6 - low;
+      const ac = calculateAC(nums);
+      let consecutivePairs = 0;
+      for (let i = 0; i < 5; i++) {
+        if (nums[i + 1] - nums[i] === 1) consecutivePairs++;
+      }
+      const zones = new Set(nums.map(n => Math.floor((n - 1) / 10)));
+
+      if (opts.filterSumRange && (sum < 100 || sum > 175)) return null;
+      if (opts.filterOddEven && (odd === 6 || odd === 0)) return null;
+      if (opts.filterAC && ac < 7) return null;
+
+      const weightSum = nums.reduce((acc, n) => acc + weights[n], 0);
+      const maxPossibleWeight = [...weights.slice(1)].sort((a, b) => b - a).slice(0, 6).reduce((a, b) => a + b, 0);
+      const freqScore = (weightSum / Math.max(0.01, maxPossibleWeight)) * 45;
+      const sumIdeal = Math.max(0, 1 - Math.abs(sum - 138) / 65) * 20;
+      const oddScore = (odd === 3 ? 14 : (odd === 2 || odd === 4 ? 11 : 4));
+      const lowScore = (low === 3 ? 10 : (low === 2 || low === 4 ? 8 : 3));
+      const acScore = Math.min(11, (ac / 10) * 11);
+      const zonePenalty = zones.size < 3 ? -8 : 0;
+      const consecPenalty = consecutivePairs >= 3 ? -10 : 0;
+      const totalScore = Math.min(99.9, Math.max(50, freqScore + sumIdeal + oddScore + lowScore + acScore + zonePenalty + consecPenalty));
+
+      return { numbers: nums, score: Number(totalScore.toFixed(1)), sum, odd, even, low, high, ac };
+    }
+
+    function weightedPick(pool, weights, count) {
+      const picked = [];
+      const available = [...pool];
+      for (let k = 0; k < count; k++) {
+        let totalW = 0;
+        for (let i = 0; i < available.length; i++) totalW += weights[available[i]];
+        let r = Math.random() * totalW;
+        let idx = available.length - 1;
+        for (let i = 0; i < available.length; i++) {
+          r -= weights[available[i]];
+          if (r <= 0) { idx = i; break; }
+        }
+        picked.push(available[idx]);
+        available.splice(idx, 1);
+      }
+      return picked;
+    }
+
+    function backtestCombo(nums) {
+      const set = new Set(nums);
+      let m3 = 0, m4 = 0, m5 = 0;
+      for (let i = 0; i < state.draws.length; i++) {
+        const d = state.draws[i];
+        let hit = 0;
+        for (let j = 0; j < 6; j++) if (set.has(d.numbers[j])) hit++;
+        if (hit === 5) m3++;
+        else if (hit === 4) m4++;
+        else if (hit === 3) m5++;
+      }
+      return { m3, m4, m5 };
+    }
+
+    function generateCombinations(withSound = false) {
+      const gameCount = parseInt(document.getElementById('gameCountInput').value, 10) || 5;
+      const strategy = document.getElementById('strategySelect').value;
+      const opts = {
+        excludePast1st: document.getElementById('excludePast1st').checked,
+        excludePast2nd: document.getElementById('excludePast2nd').checked,
+        excludeLastWeek: document.getElementById('excludeLastWeekNumbers').checked,
+        filterSumRange: document.getElementById('filterSumRange').checked,
+        filterOddEven: document.getElementById('filterOddEven').checked,
+        filterAC: document.getElementById('filterAC').checked
+      };
+
+      const excludedSet = new Set(state.excludedNumbers);
+      if (opts.excludeLastWeek && state.draws.length > 0) {
+        state.draws[state.draws.length - 1].numbers.forEach(n => excludedSet.add(n));
+      }
+
+      const fixed = [...state.fixedNumbers].filter(n => !excludedSet.has(n)).slice(0, 5);
+      const pool = [];
+      for (let n = 1; n <= 45; n++) {
+        if (!excludedSet.has(n) && !fixed.includes(n)) pool.push(n);
+      }
+
+      const needed = 6 - fixed.length;
+      if (pool.length < needed) {
+        showToast('제외수가 너무 많아 6개 번호를 구성할 수 없습니다.');
+        return;
+      }
+
+      const weights = computeWeights(strategy);
+      const candidates = new Map();
+      for (let i = 0; i < 8000; i++) {
+        const picked = weightedPick(pool, weights, needed);
+        const combo = [...fixed, ...picked].sort((a, b) => a - b);
+        const key = combo.join('-');
+        if (candidates.has(key)) continue;
+        if (opts.excludePast1st && state.past1stSet.has(key)) continue;
+        if (opts.excludePast2nd && state.past2ndSet.has(key)) continue;
+        const evaluated = evaluateCombo(combo, weights, opts);
+        if (evaluated) candidates.set(key, evaluated);
+      }
+
+      if (candidates.size < gameCount) {
+        for (let i = 0; i < 2000 && candidates.size < gameCount; i++) {
+          const picked = weightedPick(pool, weights, needed);
+          const combo = [...fixed, ...picked].sort((a, b) => a - b);
+          const key = combo.join('-');
+          if (candidates.has(key)) continue;
+          if (opts.excludePast1st && state.past1stSet.has(key)) continue;
+          const evaluated = evaluateCombo(combo, weights, { filterSumRange: false, filterOddEven: false, filterAC: false });
+          if (evaluated) candidates.set(key, evaluated);
+        }
+      }
+
+      state.extractedGames = [...candidates.values()]
+        .sort((a, b) => b.score - a.score)
+        .slice(0, gameCount)
+        .map(item => ({ ...item, backtest: backtestCombo(item.numbers) }));
+
+      renderExtractedGames();
+      if (withSound) playChime();
+    }
+
+    function renderExtractedGames() {
+      const container = document.getElementById('resultsContainer');
+      const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+      if (state.extractedGames.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-500 py-6 text-center">조건에 맞는 조합이 없습니다.</div>`;
+        return;
+      }
+      container.innerHTML = state.extractedGames.map((g, idx) => {
+        const ballsHtml = g.numbers.map((n, bIdx) =>
+          `<span class="lotto-ball ${getBallClass(n)} animate-ball" style="animation-delay:${bIdx * 35}ms">${n}</span>`
+        ).join('');
+        return `
+          <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">${labels[idx] || idx + 1}</span>
+                <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">적합도 ${g.score}점</span>
+              </div>
+              <span class="text-[11px] font-semibold text-emerald-700">1등 중복 없음</span>
+            </div>
+            <div class="flex items-center justify-between gap-1.5 flex-wrap">${ballsHtml}</div>
+            <div class="text-[11px] text-slate-500">합계 ${g.sum} · 홀짝 ${g.odd}:${g.even} · 고저 ${g.high}:${g.low} · AC ${g.ac}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('freqChart');
+      if (!ctx || typeof Chart === 'undefined') return;
+      const dataArr = state.chartMode === 'recent' ? state.freqRecent.slice(1) : state.freqAll.slice(1);
+      const labels = Array.from({ length: 45 }, (_, i) => String(i + 1));
+      const sortedVals = [...dataArr].sort((a, b) => b - a);
+      const highT = sortedVals[9] || 0;
+      const lowT = sortedVals[35] || 0;
+      const colors = dataArr.map(v => v >= highT && v > 0 ? 'rgba(79,70,229,0.88)' : (v <= lowT ? 'rgba(148,163,184,0.65)' : 'rgba(99,102,241,0.45)'));
+
+      if (state.freqChart) state.freqChart.destroy();
+      state.freqChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: '출현', data: dataArr, backgroundColor: colors, borderRadius: 4 }] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }
+        }
+      });
+    }
+
+    function renderHistoryTable(filterNo = null) {
+      const tbody = document.getElementById('historyTableBody');
+      let list = [...state.draws].reverse();
+      list = filterNo ? list.filter(d => d.draw_no === filterNo) : list.slice(0, 20);
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="py-5 text-center text-slate-400">일치하는 회차가 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.map(d => `
+        <tr>
+          <td class="py-2 px-2.5 font-bold text-slate-800 whitespace-nowrap">${d.draw_no}회</td>
+          <td class="py-2 px-2.5">
+            <div class="flex items-center gap-1 flex-wrap">${d.numbers.map(n => `<span class="lotto-ball lotto-ball-sm ${getBallClass(n)}">${n}</span>`).join('')}</div>
+          </td>
+          <td class="py-2 px-2.5">${d.bonus_no >= 1 && d.bonus_no <= 45 ? `<span class="lotto-ball lotto-ball-sm ${getBallClass(d.bonus_no)}">${d.bonus_no}</span>` : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderSavedList() {
+      document.getElementById('savedCountBadge').textContent = state.savedGames.length;
+      const container = document.getElementById('savedListContainer');
+      if (state.savedGames.length === 0) {
+        container.innerHTML = `<div class="text-xs text-slate-400 py-8 text-center">저장된 조합이 없습니다.</div>`;
+        return;
+      }
+      container.innerHTML = state.savedGames.map((item, idx) => `
+        <div class="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-200 bg-slate-50/70">
+          <div class="flex items-center gap-1 flex-wrap">${item.numbers.map(n => `<span class="lotto-ball lotto-ball-sm ${getBallClass(n)}">${n}</span>`).join('')}</div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[11px] text-slate-500">${item.score}점</span>
+            <button type="button" data-delete-saved="${idx}" class="text-xs text-rose-500 hover:text-rose-700 font-bold">삭제</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPickerGrid() {
+      const grid = document.getElementById('pickerGrid');
+      const btns = [];
+      for (let n = 1; n <= 45; n++) {
+        const isF = state.draftFixed.has(n);
+        const isE = state.draftExcluded.has(n);
+        let cls = 'bg-slate-100 text-slate-700 border-slate-200';
+        if (isF) cls = 'bg-emerald-500 text-white border-emerald-600';
+        else if (isE) cls = 'bg-rose-500 text-white border-rose-600 line-through';
+        btns.push(`<button type="button" data-pick="${n}" class="h-9 rounded-lg border text-xs font-bold transition ${cls}">${n}</button>`);
+      }
+      grid.innerHTML = btns.join('');
+    }
+
+    function updateCustomNumbersSummary() {
+      const el = document.getElementById('customNumbersSummary');
+      const f = [...state.fixedNumbers].sort((a, b) => a - b);
+      const e = [...state.excludedNumbers].sort((a, b) => a - b);
+      if (f.length === 0 && e.length === 0) {
+        el.textContent = '고정수/제외수 없음';
+        return;
+      }
+      const parts = [];
+      if (f.length) parts.push(`고정:${f.join(',')}`);
+      if (e.length) parts.push(`제외:${e.join(',')}`);
+      el.textContent = parts.join(' · ');
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast('조합이 복사되었습니다.')).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('조합이 복사되었습니다.');
+      } catch (e) {
+        showToast('복사에 실패했습니다.');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function formatGamesText() {
+      const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+      return state.extractedGames.map((g, i) => `${labels[i] || i + 1}: ${g.numbers.join(', ')} (${g.score}점)`).join('\n');
+    }
+
+    async function autoSyncDraws(manual = false) {
+      if (state.isSyncing) return false;
+      state.isSyncing = true;
+      const dot = document.getElementById('statusDot');
+      const statusText = document.getElementById('dataStatusText');
+      dot.className = 'w-2 h-2 rounded-full bg-amber-300 animate-pulse shrink-0';
+      if (manual) statusText.textContent = '최신 당첨내역 확인 중...';
+
+      try {
+        const map = new Map(state.draws.map(d => [d.draw_no, d]));
+        const beforeCount = map.size;
+
+        // 1. Fetch full history archive
+        const resAll = await fetch('https://smok95.github.io/lotto/results/all.json', { cache: 'no-store' });
+        if (!resAll.ok) throw new Error('HTTP ' + resAll.status);
+        const allData = await resAll.json();
+        if (Array.isArray(allData)) {
+          allData.forEach(item => {
+            const norm = normalizeDrawEntry(item);
+            if (norm) map.set(norm.draw_no, norm);
+          });
+        }
+
+        // 2. Fetch latest.json in case it is ahead of all.json
+        try {
+          const resLatest = await fetch('https://smok95.github.io/lotto/results/latest.json', { cache: 'no-store' });
+          if (resLatest.ok) {
+            const latestItem = normalizeDrawEntry(await resLatest.json());
+            if (latestItem) map.set(latestItem.draw_no, latestItem);
+          }
+        } catch (e) {}
+
+        // 3. Incremental probe for any newer draw numbers (maxNo + 1 .. + 5)
+        let currentMax = Math.max(0, ...map.keys());
+        for (let probe = currentMax + 1; probe <= currentMax + 5; probe++) {
+          try {
+            const r = await fetch(`https://smok95.github.io/lotto/results/${probe}.json`, { cache: 'no-store' });
+            if (!r.ok) break;
+            const norm = normalizeDrawEntry(await r.json());
+            if (!norm) break;
+            map.set(norm.draw_no, norm);
+            currentMax = norm.draw_no;
+          } catch (e) {
+            break;
+          }
+        }
+
+        state.draws = [...map.values()];
+        state.lastSyncAt = new Date().toISOString();
+        persistCachedDraws();
+        rebuildStats();
+        generateCombinations(false);
+
+        const maxNo = state.draws[state.draws.length - 1].draw_no;
+        const added = map.size - beforeCount;
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-300 shrink-0';
+        statusText.textContent = `자동 업데이트 완료 (1회~${maxNo}회)`;
+        if (manual) {
+          showToast(added > 0 ? `신규 ${added}개 회차가 자동 반영되었습니다.` : `최신 상태입니다 (${maxNo}회).`);
+        }
+        state.isSyncing = false;
+        return true;
+      } catch (err) {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-300 shrink-0';
+        const maxNo = state.draws.length ? state.draws[state.draws.length - 1].draw_no : 0;
+        statusText.textContent = state.draws.length > 10
+          ? `캐시 데이터 적용 중 (1회~${maxNo}회)`
+          : '오프라인 모드 (최신 회차 기본 적용)';
+        if (manual) showToast('네트워크 연결을 확인해 주세요.');
+        state.isSyncing = false;
+        return false;
+      }
+    }
+
+    function setupAutoSyncSchedule() {
+      if (state.syncTimerId) clearInterval(state.syncTimerId);
+      if (state.autoSyncEnabled) {
+        state.syncTimerId = setInterval(() => {
+          if (state.autoSyncEnabled) autoSyncDraws(false);
+        }, AUTO_SYNC_INTERVAL_MS);
+      }
+    }
+
+    function switchView(viewName) {
+      document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
+      document.getElementById(`view-${viewName}`).classList.remove('hidden');
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        const active = b.getAttribute('data-view') === viewName;
+        b.className = active
+          ? 'nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-indigo-600 bg-indigo-50/70'
+          : 'nav-btn relative flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800';
+      });
+      if (viewName === 'stats' && state.freqChart) {
+        state.freqChart.resize();
+      }
+    }
+
+    function bindEvents() {
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchView(btn.getAttribute('data-view')));
+      });
+
+      document.getElementById('syncNowBtn').addEventListener('click', () => autoSyncDraws(true));
+      document.getElementById('modalSyncBtn').addEventListener('click', () => autoSyncDraws(true));
+
+      document.getElementById('autoSyncToggle').addEventListener('change', e => {
+        state.autoSyncEnabled = e.target.checked;
+        setupAutoSyncSchedule();
+        showToast(state.autoSyncEnabled ? '자동 업데이트가 켜졌습니다.' : '자동 업데이트가 꺼졌습니다.');
+      });
+
+      document.getElementById('installAppBtn').addEventListener('click', async () => {
+        if (!state.deferredPrompt) return;
+        state.deferredPrompt.prompt();
+        await state.deferredPrompt.userChoice;
+        state.deferredPrompt = null;
+        document.getElementById('installAppBtn').classList.add('hidden');
+      });
+
+      document.getElementById('soundToggleBtn').addEventListener('click', () => {
+        state.soundEnabled = !state.soundEnabled;
+        const icon = document.getElementById('soundIcon');
+        icon.setAttribute('data-lucide', state.soundEnabled ? 'volume-2' : 'volume-x');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        showToast(state.soundEnabled ? '효과음이 켜졌습니다.' : '효과음이 꺼졌습니다.');
+      });
+
+      document.getElementById('gameCountInput').addEventListener('input', e => {
+        document.getElementById('gameCountLabel').textContent = `${e.target.value}게임`;
+      });
+
+      document.getElementById('generateBtn').addEventListener('click', () => generateCombinations(true));
+
+      document.getElementById('resetOptionsBtn').addEventListener('click', () => {
+        document.getElementById('gameCountInput').value = 5;
+        document.getElementById('gameCountLabel').textContent = '5게임';
+        document.getElementById('strategySelect').value = 'balanced';
+        document.getElementById('excludePast1st').checked = true;
+        document.getElementById('excludePast2nd').checked = false;
+        document.getElementById('excludeLastWeekNumbers').checked = false;
+        document.getElementById('filterSumRange').checked = true;
+        document.getElementById('filterOddEven').checked = true;
+        document.getElementById('filterAC').checked = true;
+        state.fixedNumbers.clear();
+        state.excludedNumbers.clear();
+        updateCustomNumbersSummary();
+        generateCombinations(false);
+        showToast('추출 조건이 초기화되었습니다.');
+      });
+
+      document.getElementById('copyAllBtn').addEventListener('click', () => {
+        if (state.extractedGames.length) copyText(formatGamesText());
+      });
+
+      document.getElementById('shareAllBtn').addEventListener('click', async () => {
+        if (!state.extractedGames.length) return;
+        const text = formatGamesText();
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: '로또 6/45 AI 추천 조합', text });
+            return;
+          } catch (e) {}
+        }
+        copyText(text);
+      });
+
+      document.getElementById('slipModalBtn').addEventListener('click', () => {
+        const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+        document.getElementById('slipContent').innerHTML = state.extractedGames.map((g, i) =>
+          `<div class="flex items-center justify-between border-b border-amber-200/70 last:border-0 pb-1.5 last:pb-0"><span class="font-bold text-amber-900">${labels[i] || i + 1}</span><span class="tracking-wider font-bold text-slate-900">${g.numbers.map(n => String(n).padStart(2, '0')).join('  ')}</span></div>`
+        ).join('');
+        document.getElementById('slipModal').classList.remove('hidden');
+      });
+      document.getElementById('closeSlipModalBtn').addEventListener('click', () => document.getElementById('slipModal').classList.add('hidden'));
+      document.getElementById('confirmSlipCloseBtn').addEventListener('click', () => document.getElementById('slipModal').classList.add('hidden'));
+
+      document.getElementById('saveAllBtn').addEventListener('click', () => {
+        if (!state.extractedGames.length) return;
+        const existingKeys = new Set(state.savedGames.map(g => comboKey(g.numbers)));
+        let added = 0;
+        state.extractedGames.forEach(g => {
+          const k = comboKey(g.numbers);
+          if (!existingKeys.has(k)) {
+            state.savedGames.unshift({ numbers: g.numbers, score: g.score, savedAt: new Date().toISOString() });
+            existingKeys.add(k);
+            added++;
+          }
+        });
+        persistSavedGames();
+        renderSavedList();
+        showToast(added > 0 ? `${added}개 조합을 보관함에 저장했습니다.` : '이미 보관함에 있는 조합입니다.');
+      });
+
+      document.getElementById('clearSavedBtn').addEventListener('click', () => {
+        state.savedGames = [];
+        persistSavedGames();
+        renderSavedList();
+        showToast('보관함을 비웠습니다.');
+      });
+
+      document.getElementById('savedListContainer').addEventListener('click', e => {
+        const btn = e.target.closest('[data-delete-saved]');
+        if (!btn) return;
+        state.savedGames.splice(parseInt(btn.getAttribute('data-delete-saved'), 10), 1);
+        persistSavedGames();
+        renderSavedList();
+      });
+
+      document.getElementById('chartModeAll').addEventListener('click', () => {
+        state.chartMode = 'all';
+        document.getElementById('chartModeAll').className = 'px-2.5 py-1 rounded-lg font-semibold bg-indigo-600 text-white';
+        document.getElementById('chartModeRecent').className = 'px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-700';
+        renderChart();
+      });
+      document.getElementById('chartModeRecent').addEventListener('click', () => {
+        state.chartMode = 'recent';
+        document.getElementById('chartModeRecent').className = 'px-2.5 py-1 rounded-lg font-semibold bg-indigo-600 text-white';
+        document.getElementById('chartModeAll').className = 'px-2.5 py-1 rounded-lg font-semibold bg-slate-100 text-slate-700';
+        renderChart();
+      });
+
+      document.getElementById('checkNumbersBtn').addEventListener('click', () => {
+        const raw = document.getElementById('checkNumbersInput').value;
+        const nums = [...new Set(raw.split(/[\s,]+/).filter(Boolean).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 45))].sort((a, b) => a - b);
+        const resEl = document.getElementById('checkNumbersResult');
+        if (nums.length !== 6) {
+          resEl.innerHTML = `<span class="text-rose-600 font-semibold">1~45 사이의 서로 다른 정수 6개를 입력해 주세요.</span>`;
+          return;
+        }
+        const key = nums.join('-');
+        const exactMatch = state.draws.find(d => comboKey(d.numbers) === key);
+        const bt = backtestCombo(nums);
+        if (exactMatch) {
+          resEl.innerHTML = `<span class="text-rose-600 font-bold">주의: 제${exactMatch.draw_no}회 1등 당첨번호와 6개 모두 일치합니다!</span>`;
+        } else {
+          resEl.innerHTML = `<span class="text-emerald-700 font-bold">역대 1등 중복 없음!</span> (3등 ${bt.m3}회 · 4등 ${bt.m4}회 · 5등 ${bt.m5}회 일치)`;
+        }
+      });
+
+      document.getElementById('historySearchInput').addEventListener('input', e => {
+        const val = parseInt(e.target.value, 10);
+        renderHistoryTable(isNaN(val) ? null : val);
+      });
+
+      document.getElementById('openPickerModalBtn').addEventListener('click', () => {
+        state.draftFixed = new Set(state.fixedNumbers);
+        state.draftExcluded = new Set(state.excludedNumbers);
+        renderPickerGrid();
+        document.getElementById('pickerModal').classList.remove('hidden');
+      });
+      document.getElementById('closePickerModalBtn').addEventListener('click', () => {
+        document.getElementById('pickerModal').classList.add('hidden');
+      });
+      document.getElementById('applyPickerBtn').addEventListener('click', () => {
+        state.fixedNumbers = new Set(state.draftFixed);
+        state.excludedNumbers = new Set(state.draftExcluded);
+        updateCustomNumbersSummary();
+        document.getElementById('pickerModal').classList.add('hidden');
+        generateCombinations(false);
+      });
+      document.getElementById('clearPickerBtn').addEventListener('click', () => {
+        state.draftFixed.clear();
+        state.draftExcluded.clear();
+        renderPickerGrid();
+      });
+      document.getElementById('pickerGrid').addEventListener('click', e => {
+        const btn = e.target.closest('[data-pick]');
+        if (!btn) return;
+        const n = parseInt(btn.getAttribute('data-pick'), 10);
+        if (state.draftFixed.has(n)) {
+          state.draftFixed.delete(n);
+          state.draftExcluded.add(n);
+        } else if (state.draftExcluded.has(n)) {
+          state.draftExcluded.delete(n);
+        } else {
+          if (state.draftFixed.size >= 5) {
+            showToast('고정수는 최대 5개까지 선택할 수 있습니다.');
+            return;
+          }
+          state.draftFixed.add(n);
+        }
+        renderPickerGrid();
+      });
+
+      document.getElementById('openDataModalBtn').addEventListener('click', () => document.getElementById('dataModal').classList.remove('hidden'));
+      document.getElementById('closeDataModalBtn').addEventListener('click', () => document.getElementById('dataModal').classList.add('hidden'));
+
+      document.getElementById('addManualDrawBtn').addEventListener('click', () => {
+        const drawNo = parseInt(document.getElementById('manualDrawNo').value, 10);
+        const bonusRaw = document.getElementById('manualBonusNo').value.trim();
+        const bonusNo = bonusRaw ? parseInt(bonusRaw, 10) : 0;
+        const nums = [...new Set(document.getElementById('manualNumbers').value.split(/[\s,]+/).filter(Boolean).map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= 45))];
+
+        if (!drawNo || drawNo < 1 || nums.length !== 6) {
+          showToast('올바른 회차 번호와 1~45 정수 6개를 입력해 주세요.');
+          return;
+        }
+        if (bonusRaw && (!Number.isInteger(bonusNo) || bonusNo < 1 || bonusNo > 45 || nums.includes(bonusNo))) {
+          showToast('보너스 번호는 당첨번호와 겹치지 않는 1~45 정수여야 합니다.');
+          return;
+        }
+
+        const existingIdx = state.draws.findIndex(d => d.draw_no === drawNo);
+        const entry = { draw_no: drawNo, date: new Date().toISOString().slice(0, 10), numbers: nums.sort((a, b) => a - b), bonus_no: bonusNo };
+        if (existingIdx >= 0) state.draws[existingIdx] = entry;
+        else state.draws.push(entry);
+
+        document.getElementById('manualDrawNo').value = '';
+        document.getElementById('manualBonusNo').value = '';
+        document.getElementById('manualNumbers').value = '';
+
+        persistCachedDraws();
+        rebuildStats();
+        generateCombinations(false);
+        document.getElementById('dataModal').classList.add('hidden');
+        showToast(`${drawNo}회 당첨번호가 추가되었습니다.`);
+      });
+
+      document.getElementById('importFileInput').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          try {
+            const text = String(ev.target.result).trim();
+            let imported = [];
+            if (text.startsWith('[') || text.startsWith('{')) {
+              const parsed = JSON.parse(text);
+              const arr = Array.isArray(parsed) ? parsed : [parsed];
+              imported = arr.map(normalizeDrawEntry).filter(Boolean);
+            } else {
+              text.split(/\r?\n/).forEach(line => {
+                const cols = line.split(',').map(s => parseInt(s.trim(), 10));
+                const uniq = [...new Set(cols.slice(1, 7).filter(n => Number.isInteger(n) && n >= 1 && n <= 45))];
+                if (cols.length >= 7 && !isNaN(cols[0]) && uniq.length === 6) {
+                  imported.push({ draw_no: cols[0], date: '', numbers: uniq.sort((a, b) => a - b), bonus_no: cols[7] || 0 });
+                }
+              });
+            }
+            if (!imported.length) throw new Error('No valid rows');
+            const map = new Map(state.draws.map(d => [d.draw_no, d]));
+            imported.forEach(d => map.set(d.draw_no, d));
+            state.draws = [...map.values()];
+            persistCachedDraws();
+            rebuildStats();
+            generateCombinations(false);
+            document.getElementById('dataModal').classList.add('hidden');
+            showToast(`${imported.length}개 회차 데이터를 가져왔습니다.`);
+          } catch (err) {
+            showToast('파일 형식을 인식할 수 없습니다.');
+          }
+          e.target.value = '';
+        };
+        reader.readAsText(file);
+      });
+
+      // Auto-sync on network reconnect or tab focus
+      window.addEventListener('online', () => {
+        if (state.autoSyncEnabled) autoSyncDraws(false);
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && state.autoSyncEnabled) {
+          const elapsed = state.lastSyncAt ? (Date.now() - new Date(state.lastSyncAt).getTime()) : Infinity;
+          if (elapsed > 5 * 60 * 1000) autoSyncDraws(false);
+        }
+      });
+      window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        state.deferredPrompt = e;
+        document.getElementById('installAppBtn').classList.remove('hidden');
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      loadSavedGames();
+      renderSavedList();
+      loadCachedDraws();
+      rebuildStats();
+      bindEvents();
+      generateCombinations(false);
+      setupAutoSyncSchedule();
+      autoSyncDraws(false);
+      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(() => {}); }
+    });
+  </script>
+</body>
+</html>
