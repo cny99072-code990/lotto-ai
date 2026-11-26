@@ -190,6 +190,8 @@
               <option value="hot">최다 출현 중심 (Hot 번호 가중)</option>
               <option value="recent">최근 트렌드 중심 (최근 30회 가중)</option>
               <option value="cold">미출현 반등 (저빈도 + 미출현 가중)</option>
+              <option value="anti_popular">인기 패턴 회피 (기대 당첨금 극대화)</option>
+              <option value="wheeling">조합 커버링 Wheeling (4·5등 적중 최적화)</option>
             </select>
           </div>
 
@@ -217,6 +219,10 @@
             <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer">
               <input id="filterAC" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
               <span class="font-medium text-slate-700">복잡도 AC 7 이상</span>
+            </label>
+            <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 cursor-pointer sm:col-span-2">
+              <input id="filterAntiPopular" type="checkbox" checked class="rounded border-slate-300 text-indigo-600" />
+              <span class="font-medium text-slate-700">인기 패턴 회피 (생일 편중·등차·OMR 일렬 제외)</span>
             </label>
           </div>
 
@@ -618,6 +624,7 @@
         if (strategy === 'hot') weights[n] = 0.4 + 2.2 * normAll + 0.5 * normRecent;
         else if (strategy === 'recent') weights[n] = 0.4 + 2.3 * normRecent + 0.4 * normAll;
         else if (strategy === 'cold') weights[n] = 0.5 + 1.5 * (1 - normAll) + 1.4 * normGap;
+        else if (strategy === 'anti_popular') weights[n] = (n >= 32 ? 1.8 : 0.75) + 0.6 * normAll;
         else weights[n] = 0.8 + 1.1 * normAll + 0.7 * normRecent + 0.4 * normGap;
       }
       return weights;
@@ -650,6 +657,15 @@
       if (opts.filterOddEven && (odd === 6 || odd === 0)) return null;
       if (opts.filterAC && ac < 7) return null;
 
+      // Anti-popular pattern check: birthday bias (all <= 31), OMR same row/col, arithmetic sequence
+      const over31 = nums.filter(n => n >= 32).length;
+      const omrRows = new Set(nums.map(n => Math.floor((n - 1) / 7)));
+      const omrCols = new Set(nums.map(n => (n - 1) % 7));
+      const isArithmetic = nums.every((v, idx) => idx === 0 || (v - nums[idx - 1]) === (nums[1] - nums[0]));
+      if (opts.filterAntiPopular) {
+        if (over31 === 0 || omrRows.size <= 1 || omrCols.size <= 1 || isArithmetic) return null;
+      }
+
       const weightSum = nums.reduce((acc, n) => acc + weights[n], 0);
       const maxPossibleWeight = [...weights.slice(1)].sort((a, b) => b - a).slice(0, 6).reduce((a, b) => a + b, 0);
       const freqScore = (weightSum / Math.max(0.01, maxPossibleWeight)) * 45;
@@ -661,7 +677,9 @@
       const consecPenalty = consecutivePairs >= 3 ? -10 : 0;
       const totalScore = Math.min(99.9, Math.max(50, freqScore + sumIdeal + oddScore + lowScore + acScore + zonePenalty + consecPenalty));
 
-      return { numbers: nums, score: Number(totalScore.toFixed(1)), sum, odd, even, low, high, ac };
+      const rarityBonus = Math.min(4, over31 * 1.2);
+      const finalScore = Math.min(99.9, totalScore + (opts.strategy === 'anti_popular' ? rarityBonus : 0));
+      return { numbers: nums, score: Number(finalScore.toFixed(1)), sum, odd, even, low, high, ac, over31 };
     }
 
     function weightedPick(pool, weights, count) {
@@ -705,7 +723,9 @@
         excludeLastWeek: document.getElementById('excludeLastWeekNumbers').checked,
         filterSumRange: document.getElementById('filterSumRange').checked,
         filterOddEven: document.getElementById('filterOddEven').checked,
-        filterAC: document.getElementById('filterAC').checked
+        filterAC: document.getElementById('filterAC').checked,
+        filterAntiPopular: document.getElementById('filterAntiPopular').checked,
+        strategy
       };
 
       const excludedSet = new Set(state.excludedNumbers);
@@ -726,6 +746,92 @@
       }
 
       const weights = computeWeights(strategy);
+
+      if (strategy === 'wheeling') {
+        // Build 10-number wheeling pool (fixed numbers + top weighted pool numbers)
+        const wheelPool = [...fixed];
+        const sortedPool = [...pool].sort((a, b) => weights[b] - weights[a]);
+        for (const n of sortedPool) {
+          if (wheelPool.length >= 10) break;
+          wheelPool.push(n);
+        }
+        wheelPool.sort((a, b) => a - b);
+
+        // Enumerate all 3-number subsets of wheelPool to maximize 5th-prize (3-match) coverage
+        const triples = [];
+        for (let i = 0; i < wheelPool.length; i++) {
+          for (let j = i + 1; j < wheelPool.length; j++) {
+            for (let k = j + 1; k < wheelPool.length; k++) {
+              triples.push(`${wheelPool[i]}-${wheelPool[j]}-${wheelPool[k]}`);
+            }
+          }
+        }
+        const uncovered = new Set(triples);
+
+        // Generate valid 6-number combos from wheelPool (C(10,6)=210 max)
+        const wheelCandidates = [];
+        function comb(start, curr) {
+          if (curr.length === 6) {
+            const key = curr.join('-');
+            if (opts.excludePast1st && state.past1stSet.has(key)) return;
+            if (opts.excludePast2nd && state.past2ndSet.has(key)) return;
+            const ev = evaluateCombo([...curr], weights, { ...opts, filterSumRange: false, filterOddEven: false, filterAC: false, filterAntiPopular: false });
+            if (ev) wheelCandidates.push(ev);
+            return;
+          }
+          for (let i = start; i < wheelPool.length; i++) {
+            if (!fixed.includes(wheelPool[i]) || curr.length < 6) {
+              curr.push(wheelPool[i]);
+              comb(i + 1, curr);
+              curr.pop();
+            }
+          }
+        }
+        comb(0, []);
+
+        const selected = [];
+        const usedKeys = new Set();
+        for (let g = 0; g < gameCount && wheelCandidates.length > 0; g++) {
+          let best = null;
+          let bestGain = -1;
+          for (const cand of wheelCandidates) {
+            const key = cand.numbers.join('-');
+            if (usedKeys.has(key)) continue;
+            // Ensure all fixed numbers are included
+            if (!fixed.every(f => cand.numbers.includes(f))) continue;
+            let gain = 0;
+            const nums = cand.numbers;
+            for (let a = 0; a < 6; a++) {
+              for (let b = a + 1; b < 6; b++) {
+                for (let c = b + 1; c < 6; c++) {
+                  if (uncovered.has(`${nums[a]}-${nums[b]}-${nums[c]}`)) gain++;
+                }
+              }
+            }
+            if (gain > bestGain || (gain === bestGain && best && cand.score > best.score)) {
+              bestGain = gain;
+              best = cand;
+            }
+          }
+          if (!best) break;
+          usedKeys.add(best.numbers.join('-'));
+          const nums = best.numbers;
+          for (let a = 0; a < 6; a++) {
+            for (let b = a + 1; b < 6; b++) {
+              for (let c = b + 1; c < 6; c++) {
+                uncovered.delete(`${nums[a]}-${nums[b]}-${nums[c]}`);
+              }
+            }
+          }
+          const covPct = Math.round(((triples.length - uncovered.size) / Math.max(1, triples.length)) * 100);
+          selected.push({ ...best, wheelCoverage: covPct, backtest: backtestCombo(best.numbers) });
+        }
+        state.extractedGames = selected;
+        renderExtractedGames();
+        if (withSound) playChime();
+        return;
+      }
+
       const candidates = new Map();
       for (let i = 0; i < 8000; i++) {
         const picked = weightedPick(pool, weights, needed);
@@ -780,7 +886,7 @@
               <span class="text-[11px] font-semibold text-emerald-700">1등 중복 없음</span>
             </div>
             <div class="flex items-center justify-between gap-1.5 flex-wrap">${ballsHtml}</div>
-            <div class="text-[11px] text-slate-500">합계 ${g.sum} · 홀짝 ${g.odd}:${g.even} · 고저 ${g.high}:${g.low} · AC ${g.ac}</div>
+            <div class="text-[11px] text-slate-500">합계 ${g.sum} · 홀짝 ${g.odd}:${g.even} · 고저 ${g.high}:${g.low} · AC ${g.ac}${g.wheelCoverage !== undefined ? ` · 커버링 ${g.wheelCoverage}%` : ''}</div>
           </div>
         `;
       }).join('');
@@ -1046,6 +1152,7 @@
         document.getElementById('filterSumRange').checked = true;
         document.getElementById('filterOddEven').checked = true;
         document.getElementById('filterAC').checked = true;
+        document.getElementById('filterAntiPopular').checked = true;
         state.fixedNumbers.clear();
         state.excludedNumbers.clear();
         updateCustomNumbersSummary();
